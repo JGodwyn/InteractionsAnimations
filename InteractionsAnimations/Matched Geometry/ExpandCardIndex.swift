@@ -8,55 +8,45 @@
 import SwiftUI
 
 struct ExpandCardIndex: View {
+    @Namespace private var bannerNS
+    @Namespace private var bannerTextNS
     
-    // design the animation style something
+    @Namespace private var trashAnimationNS
     
-    @Namespace fileprivate var bannerNS
-    @Namespace fileprivate var bannerTextNS
-    @Namespace fileprivate var joinTextFieldsNS
-    
-    @Namespace fileprivate var moveToBinNS // has to bind to this NS
-    @State private var moveToBin : Bool = false // has to bind to this value (problem)
-    @State private var isLifted : Bool = false // don't need to bind
+    @State private var deletingItemID : UUID? = nil
     
     @State private var expandBanner : Bool = false
     @State private var showExpandedText : Bool = false
-    @State private var showInputField : Bool = false
-    @State private var inputText : String = ""
     @State private var exampleCollection : [tempData] = tempData.example
     
     var body: some View {
         GeometryReader { geometry in
-            VStack(spacing: 16) {
-                
-                Button("Reset") {
-                    isLifted = false
-                    moveToBin = false
-                }
-                
-                // this has to be inside each struct
-
-                
-                glassContainerTextField
-                    .zIndex(2)
-                
-                ForEach(tempData.example.sorted(by: {$0.date > $1.date})) { item in
-                    textCard(label: item.name, date: item.date, moveToBinNS: moveToBinNS) {
-                        tempData.example.removeAll {
-                            $0.id == item
+            let trashPosition : CGPoint = CGPoint(x: geometry.size.width * 0.85,
+                                                  y: geometry.size.height - (geometry.size.height * 0.05))
+        
+            ZStack {
+                VStack(spacing: 16) {
+                    glassContainerTextField(tempData: $exampleCollection)
+                    
+                    ForEach(exampleCollection.sorted {$0.date > $1.date}) { item in
+                        textCard(item: item, nameSpace: trashAnimationNS, isDeleting: deletingItemID == item.id) {
+                            handleDelete(item: item)
                         }
-                    }
                         .transition(.move(edge: .top).combined(with: .scale).combined(with: .blurReplace))
+                    }
                 }
+                .padding()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(.gray.opacity(0.1))
+                .animation(.smooth, value: exampleCollection)
+                
             }
-            .padding()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(.gray.opacity(0.1))
-            .animation(.smooth, value: tempData.example)
-            .animation(.easeIn(duration: 0.5), value: isLifted)
-            .animation(.easeIn(duration: 0.5), value: moveToBin)
             .overlay {
-                if moveToBin {
+                ZStack {
+                    Color.red
+                        .frame(width: 48, height: 48)
+                        .matchedGeometryEffect(id: "flyingTrash", in: trashAnimationNS, properties: .position, isSource: true)
+                    
                     Image("TrashCan")
                         .resizable()
                         .frame(width: 48, height: 48)
@@ -64,23 +54,21 @@ struct ExpandCardIndex: View {
                         .background(.white, in: .rect(cornerRadius: 24, style: .continuous))
                         .compositingGroup()
                         .shadow(color: .black.opacity(0.1), radius: 20, y: 8)
-                        .matchedGeometryEffect(id: "moveToBin", in: moveToBinNS, properties: .position)
-                        .position(x: geometry.size.width * 0.85,
-                                 y: geometry.size.height - (geometry.size.height * 0.05))
-                        .zIndex(4)
-                } else {
-                    Image("TrashCan")
-                        .resizable()
-                        .frame(width: 48, height: 48)
-                        .padding(12)
-                        .background(.white, in: .rect(cornerRadius: 24, style: .continuous))
-                        .compositingGroup()
-                        .shadow(color: .black.opacity(0.1), radius: 20, y: 8)
-                        .position(x: geometry.size.width * 0.85,
-                                 y: geometry.size.height - (geometry.size.height * 0.05))
                 }
+                .position(trashPosition)
+                .zIndex(101)
             }
-
+        }
+    }
+    
+    func handleDelete(item: tempData) {
+        withAnimation {
+            deletingItemID = item.id
+        }
+        Task {
+            try? await Task.sleep(for: .seconds(0.1))
+            if let idx = exampleCollection.firstIndex(where: { $0.id == item.id }) { _ = exampleCollection.remove(at: idx) }
+            deletingItemID = nil
         }
     }
 }
@@ -92,18 +80,152 @@ struct ExpandCardIndex: View {
 
 extension ExpandCardIndex {
     
-    var symbolName : String {
-        guard showInputField else {
-            return "plus"
+    var collapsedBanner : some View {
+        HStack(alignment: .top) {
+                Image(systemName: "info.circle.fill")
+                    .foregroundStyle(.teal)
+                Text("Tap to view information")
+                    .lineLimit(1)
         }
-        if inputText.isEmpty {
-            return "minus"
-        } else {
-            return "paperplane.fill"
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+        .matchedGeometryEffect(id: "banner", in: bannerNS)
+        .frame(alignment: .leading)
+        .background(.teal.opacity(1), in: .rect(cornerRadius: 12))
+        .onTapGesture {
+            expandBanner = true
+        }
+    }
+    var expandedBanner : some View {
+        HStack(alignment: .top) {
+            Image(systemName: "info.circle.fill")
+                .foregroundStyle(.teal)
+            Text("This is the full information contained in the banner so you should know that it can keep going for as long as possible")
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 8)
+        .matchedGeometryEffect(id: "banner", in: bannerNS)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.teal.opacity(1), in: .rect(cornerRadius: 12))
+        .onTapGesture {
+            expandBanner = false
         }
     }
     
-    var glassContainerTextField : some View {
+}
+
+struct tempData : Hashable, Identifiable {
+    let id = UUID()
+    var name : String
+    var date : Date
+    
+    static var example : [tempData]  = [
+        .init(name: "Auto added 1", date: .now),
+        .init(name: "Auto added 2", date: .now),
+        .init(name: "Auto added 3", date: .now)
+    ]
+}
+
+struct textCard: View {
+    let item: tempData
+    let nameSpace: Namespace.ID
+    let isDeleting: Bool
+    let tapDelete: () -> Void
+    
+    @Namespace private var changeFormNS
+    @State private var changeForm: Bool = false
+    @State private var isLifted: Bool = false
+    
+    var body: some View {
+        Group {
+            if !changeForm {
+                HStack(spacing: 16) {
+                    Rectangle().fill(.red.opacity(0.1))
+                        .frame(width: 72, height: 72)
+                        .clipShape(.rect(cornerRadius: 16))
+                        .overlay {
+                            Image(systemName: "trash.fill")
+                                .font(.system(size: 24))
+                                .foregroundStyle(.red)
+                        }
+                        .onTapGesture {
+                                isLifted = true
+                                Task {
+                                    try? await Task.sleep(for: .seconds(0.2))
+                                    tapDelete()
+                                }
+                        }
+                    
+                    VStack(alignment: .leading) {
+                        Text(item.name)
+                            .font(.system(size: 18))
+                            .fontWeight(.bold)
+                        Text("\(item.date)")
+                            .lineLimit(2)
+                            .foregroundStyle(.gray)
+                    }
+                }
+                .padding(12)
+                .padding(.trailing, 12)
+                .glassEffect(.clear.interactive(), in: .rect(cornerRadius: 24, style: .continuous))
+                .matchedGeometryEffect(id: "changeForm", in: changeFormNS, properties: .size, anchor: .center)
+                .frame(maxWidth: .infinity)
+                .onTapGesture {
+                    withAnimation(.smooth(duration: 0.3)) {
+                        changeForm = true
+                    }
+                }
+            
+            } else {
+                HStack {
+                    Rectangle().fill(.red)
+                        .frame(width: 24, height: 24)
+                        .clipShape(.rect(cornerRadius: 8))
+                    Text(item.name)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .foregroundStyle(.gray)
+                }
+                .padding(12)
+                .glassEffect(.clear.interactive(), in: .rect(cornerRadius: 20, style: .continuous))
+                .matchedGeometryEffect(id: "changeForm", in: changeFormNS, properties: .size, anchor: .center)
+                .onTapGesture {
+                    withAnimation(.smooth(duration: 0.3)) {
+                        changeForm = false
+                    }
+                }
+            }
+        }
+        .compositingGroup()
+        .offset(x: isLifted ? 20 : 0, y: isLifted ? -40 : 0)
+        // using any stack messes up the expand and contract effect
+        // compositingGroup() flattens the group and adds the effect as if it's just one view
+        // if not, the effect will be added to every view
+        .matchedGeometryEffect(
+            // Apply the matched geometry effect to the entire card
+            id: isDeleting ? "flyingTrash" : "card-\(item.id)",
+            // this item.id makes sure each card gets another name so they all don't appear in the same place due to their geometry matching
+            in: nameSpace,
+            properties: .position,
+            isSource: false
+        )
+        .animation(.easeIn(duration: 0.2), value: isLifted)
+        .animation(.easeIn(duration: 0.5), value: isDeleting)
+        .scaleEffect(isDeleting ? 0 : 1)
+        .onDisappear {
+            isLifted = false
+        }
+    }
+}
+
+
+struct glassContainerTextField : View {
+    
+    @State private var showInputField : Bool = false
+    @State private var inputText : String = ""
+    @Namespace private var joinTextFieldsNS
+    @Binding var tempData : [tempData]
+    
+    var body : some View {
         GlassEffectContainer {
             HStack {
                 if showInputField {
@@ -118,9 +240,11 @@ extension ExpandCardIndex {
                             showInputField.toggle()
                         }
                     } else {
-                        tempData.example.append(.init(name: inputText, date: .now))
-                        inputText = ""
-                        showInputField.toggle()
+                        tempData.append(.init(name: inputText, date: .now))
+                        withAnimation {
+                            inputText = ""
+                            showInputField.toggle()
+                        }
                     }
                     
                 } label: {
@@ -144,145 +268,15 @@ extension ExpandCardIndex {
         }
     }
     
-    var collapsedBanner : some View {
-        HStack(alignment: .top) {
-                Image(systemName: "info.circle.fill")
-                    .foregroundStyle(.teal)
-                Text("Tap to view information")
-                    .lineLimit(1)
+    var symbolName : String {
+        guard showInputField else {
+            return "plus"
         }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
-        .matchedGeometryEffect(id: "banner", in: bannerNS)
-        .frame(alignment: .leading)
-        .background(.teal.opacity(1), in: .rect(cornerRadius: 12))
-        .onTapGesture {
-            expandBanner = true
-        }
-    }
-    
-    var expandedBanner : some View {
-        HStack(alignment: .top) {
-            Image(systemName: "info.circle.fill")
-                .foregroundStyle(.teal)
-            Text("This is the full information contained in the banner so you should know that it can keep going for as long as possible")
-        }
-        .padding(.horizontal)
-        .padding(.vertical, 8)
-        .matchedGeometryEffect(id: "banner", in: bannerNS)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.teal.opacity(1), in: .rect(cornerRadius: 12))
-        .onTapGesture {
-            expandBanner = false
-        }
-    }
-    
-    
-    @ViewBuilder
-    fileprivate func expandedTextView() -> some View {
-        if !showExpandedText {
-            Text("Tap to view information")
+        if inputText.isEmpty {
+            return "minus"
         } else {
-            Text("This is the full information contained in the banner so you should know that it can keep going for as long as possible")
+            return "paperplane.fill"
         }
-        
-        Button("Change this text") {
-            withAnimation(.smooth(duration: 0.1)) {
-                showExpandedText.toggle()
-            }
-        }
-        .buttonStyle(.glassProminent)
-        .padding()
     }
-}
-
-
-
-struct tempData : Hashable, Identifiable {
-    let id = UUID()
-    var name : String
-    var date : Date
     
-    static var example : [tempData]  = [
-        .init(name: "Auto added", date: .now)
-    ]
-}
-
-
-struct textCard : View {
-    
-    var label: String
-    var date: Date
-    let moveToBinNS : Namespace.ID
-    let tapDelete : () -> Void
-    
-    @State private var moveToBin : Bool = false
-    @Namespace private var changeFormNS // stays the same
-    
-    @State private var changeForm : Bool = false
-    
-    var body: some View {
-        
-        // add a delete button somwhere here
-        // add an initial upward movement before the item drops
-        
-            if !moveToBin {
-                if !changeForm {
-                    HStack(spacing: 16) {
-                        Rectangle().fill(.red.opacity(0.1))
-                            .frame(width: 72, height: 72)
-                            .clipShape(.rect(cornerRadius: 16))
-                            .overlay {
-                                Image(systemName: "trash.fill")
-                                    .font(.system(size: 24))
-                                    .foregroundStyle(.red)
-                            }
-                            .onTapGesture {
-                                withAnimation {
-//                                    moveToBin = true
-                                    tapDelete()
-                                }
-                            }
-                        
-                        VStack(alignment: .leading) {
-                            Text(label)
-                                .font(.system(size: 18))
-                                .fontWeight(.bold)
-                            Text("\(date)")
-                                .lineLimit(2)
-                                .foregroundStyle(.gray)
-                        }
-                    }
-                    .padding(12)
-                    .padding(.trailing, 12)
-                    .matchedGeometryEffect(id: "changeForm", in: changeFormNS, properties: .size, anchor: .topLeading)
-                    
-                    .frame(maxWidth: .infinity)
-                    .glassEffect(.clear.interactive(), in: .rect(cornerRadius: 24, style: .continuous))
-                    .onTapGesture {
-                        withAnimation(.smooth(duration: 0.3)) {
-                            changeForm = true
-                        }
-                    }
-
-                } else {
-                    HStack {
-                        Rectangle().fill(.red)
-                            .frame(width: 24, height: 24)
-                            .clipShape(.rect(cornerRadius: 8))
-                        Text(label)
-                        Image(systemName: "chevron.up.chevron.down")
-                            .foregroundStyle(.gray)
-                    }
-                    .padding(12)
-                    .glassEffect(.clear.interactive(), in: .rect(cornerRadius: 20, style: .continuous))
-                    .matchedGeometryEffect(id: "changeForm", in: changeFormNS, properties: .size, anchor: .topLeading)
-                    .onTapGesture {
-                        withAnimation(.smooth(duration: 0.3)) {
-                            changeForm = false
-                        }
-                    }
-                }
-            }
-        }
 }
