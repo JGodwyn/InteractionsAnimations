@@ -48,7 +48,7 @@ struct ExpandCardIndex: View {
                                 .resizable()
                                 .frame(width: 48, height: 48)
                                 .foregroundStyle(.gray)
-                            Text("No entries here. Start by adding one below")
+                            Text("No entries here. Start by adding one above")
                                 .frame(width: 240)
                                 .multilineTextAlignment(.center)
                                 .foregroundStyle(.gray)
@@ -163,12 +163,12 @@ struct tempData : Hashable, Identifiable {
     var date : Date
     
     static var example : [tempData]  = [
-        .init(name: "Auto added 1", date: .now),
-        .init(name: "Auto added 2", date: .now),
-        .init(name: "Auto added 3", date: .now),
-        .init(name: "Auto added 4", date: .now),
-        .init(name: "Auto added 5", date: .now),
-        .init(name: "Auto added 6", date: .now)
+//        .init(name: "Auto added 1", date: .now),
+//        .init(name: "Auto added 2", date: .now),
+//        .init(name: "Auto added 3", date: .now),
+//        .init(name: "Auto added 4", date: .now),
+//        .init(name: "Auto added 5", date: .now),
+//        .init(name: "Auto added 6", date: .now)
     ]
 }
 
