@@ -35,10 +35,10 @@ struct WiggleAnimation: View {
 }
 
 // View modifier for wiggle animation
-struct WiggleModifier: ViewModifier {
+struct WiggleModifier <Equate: Equatable> : ViewModifier {
     @State private var isWiggling = false
     @State private var increaseScale: Bool = false
-    let trigger: Bool
+    let trigger: Equate // generic equatable object
     let duration: Double
     
     func body(content: Content) -> some View {
@@ -70,7 +70,7 @@ struct WiggleModifier: ViewModifier {
 
 // View extension for easy usage
 extension View {
-    func wiggle(trigger: Bool, duration: Double = 0.3, increaseScale: Bool = false) -> some View {
+    func wiggle<Equate: Equatable> (trigger: Equate, duration: Double = 0.3, increaseScale: Bool = false) -> some View {
         modifier(WiggleModifier(trigger: trigger, duration: duration ))
     }
 }
