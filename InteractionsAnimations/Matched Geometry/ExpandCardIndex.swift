@@ -16,6 +16,8 @@ struct ExpandCardIndex: View {
     @State private var deletingItemID : UUID? = nil
     
     @State private var expandBanner : Bool = false
+    @State private var shouldWiggle : Bool = false
+    @State private var shouldBinRemove : Bool = true
     @State private var showExpandedText : Bool = false
     @State private var exampleCollection : [tempData] = tempData.example
     
@@ -25,7 +27,7 @@ struct ExpandCardIndex: View {
                                                   y: geometry.size.height - (geometry.size.height * 0.05))
         
             ZStack {
-                VStack(spacing: 16) {
+                VStack(spacing: 12) {
                     glassContainerTextField(tempData: $exampleCollection)
                     
                     ForEach(exampleCollection.sorted {$0.date > $1.date}) { item in
@@ -38,31 +40,69 @@ struct ExpandCardIndex: View {
                 .padding()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(.gray.opacity(0.1))
-                .animation(.smooth, value: exampleCollection)
-                
+                .overlay {
+                    if exampleCollection.isEmpty {
+                        VStack {
+                            Image("CardGameIcon")
+                                .renderingMode(.template)
+                                .resizable()
+                                .frame(width: 48, height: 48)
+                                .foregroundStyle(.gray)
+                            Text("No entries here. Start by adding one below")
+                                .frame(width: 240)
+                                .multilineTextAlignment(.center)
+                                .foregroundStyle(.gray)
+                        }
+                        .frame(height: 256)
+                        .frame(maxWidth: .infinity)
+                        .mask {
+                            RadialGradient(
+                                stops: [
+                                    .init(color: Color.black.opacity(1), location: 0),
+                                    .init(color: Color.black.opacity(1), location: 0.3),
+                                    .init(color: Color.black.opacity(0), location: 0.7)
+                                ],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: 200
+                            )
+                        }
+                        .offset(y: 120)
+                    }
+                }
             }
             .overlay {
-                ZStack {
-                    Color.red
-                        .frame(width: 48, height: 48)
-                        .matchedGeometryEffect(id: "flyingTrash", in: trashAnimationNS, properties: .position, isSource: true)
-                    
-                    Image("TrashCan")
-                        .resizable()
-                        .frame(width: 48, height: 48)
-                        .padding(12)
-                        .background(.white, in: .rect(cornerRadius: 24, style: .continuous))
-                        .compositingGroup()
-                        .shadow(color: .black.opacity(0.1), radius: 20, y: 8)
-                }
-                .position(trashPosition)
-                .zIndex(101)
+                Image("TrashCan")
+                    .resizable()
+                    .frame(width: 48, height: 48)
+                    .padding(12)
+                    .background(.white, in: .rect(cornerRadius: 24, style: .continuous))
+                    .wiggle(trigger: deletingItemID != nil)
+                    .compositingGroup()
+                    .shadow(color: .black.opacity(0.1), radius: 20, y: 8)
+                    .matchedGeometryEffect(id: "flyingTrash", in: trashAnimationNS, properties: .position, isSource: true)
+                    .position(trashPosition)
+                    .zIndex(101)
+                    .offset(x: shouldBinRemove ? 100 : 0)
             }
+            .animation(.smooth, value: exampleCollection)
+            .animation(.smooth.delay(0.5), value: shouldBinRemove)
+        }
+        .onChange(of: exampleCollection) { _, _ in
+            showBinHandler(handler: &shouldBinRemove)
+        }
+    }
+    
+    func showBinHandler(handler : inout Bool) {
+        if exampleCollection.isEmpty {
+            handler = true
+        } else {
+            handler = false
         }
     }
     
     func handleDelete(item: tempData) {
-        withAnimation {
+        withAnimation(.easeIn) {
             deletingItemID = item.id
         }
         Task {
@@ -120,9 +160,12 @@ struct tempData : Hashable, Identifiable {
     var date : Date
     
     static var example : [tempData]  = [
-        .init(name: "Auto added 1", date: .now),
-        .init(name: "Auto added 2", date: .now),
-        .init(name: "Auto added 3", date: .now)
+//        .init(name: "Auto added 1", date: .now),
+//        .init(name: "Auto added 2", date: .now),
+//        .init(name: "Auto added 3", date: .now),
+//        .init(name: "Auto added 4", date: .now),
+//        .init(name: "Auto added 5", date: .now),
+//        .init(name: "Auto added 6", date: .now)
     ]
 }
 

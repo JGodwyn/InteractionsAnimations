@@ -16,6 +16,11 @@
 			path = InteractionsAnimations;
 			sourceTree = "<group>";
 		};
+		DE95B8642F12A54A0006000F /* Animation Modifiers */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "Animation Modifiers";
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -34,6 +39,7 @@
 			children = (
 				DE1B153D2F0B803C00FB5F0F /* InteractionsAnimations */,
 				DE1B153C2F0B803C00FB5F0F /* Products */,
+				DE95B8642F12A54A0006000F /* Animation Modifiers */,
 			);
 			sourceTree = "<group>";
 		};
@@ -62,6 +68,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				DE1B153D2F0B803C00FB5F0F /* InteractionsAnimations */,
+				DE95B8642F12A54A0006000F /* Animation Modifiers */,
 			);
 			name = InteractionsAnimations;
 			packageProductDependencies = (
