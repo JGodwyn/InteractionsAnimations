@@ -88,6 +88,9 @@ struct ExpandCardIndex: View {
             .animation(.smooth, value: exampleCollection)
             .animation(.smooth.delay(0.5), value: shouldBinRemove)
         }
+        .onAppear {
+            showBinHandler(handler: &shouldBinRemove)
+        }
         .onChange(of: exampleCollection) { _, _ in
             showBinHandler(handler: &shouldBinRemove)
         }
@@ -160,12 +163,12 @@ struct tempData : Hashable, Identifiable {
     var date : Date
     
     static var example : [tempData]  = [
-//        .init(name: "Auto added 1", date: .now),
-//        .init(name: "Auto added 2", date: .now),
-//        .init(name: "Auto added 3", date: .now),
-//        .init(name: "Auto added 4", date: .now),
-//        .init(name: "Auto added 5", date: .now),
-//        .init(name: "Auto added 6", date: .now)
+        .init(name: "Auto added 1", date: .now),
+        .init(name: "Auto added 2", date: .now),
+        .init(name: "Auto added 3", date: .now),
+        .init(name: "Auto added 4", date: .now),
+        .init(name: "Auto added 5", date: .now),
+        .init(name: "Auto added 6", date: .now)
     ]
 }
 
