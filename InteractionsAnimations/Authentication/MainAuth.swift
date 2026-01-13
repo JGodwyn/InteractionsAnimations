@@ -148,11 +148,6 @@ struct MainAuth: View {
                 .fill(Color.white.opacity(0.05))
                 .background(.ultraThinMaterial)
                 .ignoresSafeArea()
-                .onTapGesture {
-                    if searchQuery.isEmpty {
-                        expandDropdown = false
-                    }
-                }
             
             VStack(alignment: .leading, spacing: 0) {
                 Text("Where are you?")
@@ -220,6 +215,20 @@ struct MainAuth: View {
         }
         .matchedGeometryEffect(id: "expandDropdown", in: expandDropdownNS, properties: .position)
         .transition(.blurReplace.combined(with: .scale(2, anchor: .center)))
+        .overlay(alignment: .bottom) {
+            Button {
+                expandDropdown = false
+            } label: {
+                HStack {
+                    Image(systemName: "xmark")
+                        .foregroundStyle(BrandColors.Gray400)
+                    Text("Close")
+                }
+                .padding(.vertical, 4)
+                .padding(.horizontal, 8)
+            }
+            .buttonStyle(.glass)
+        }
     }
     
     func handleCountrySelection(item: Country) {
