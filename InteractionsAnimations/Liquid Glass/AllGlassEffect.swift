@@ -34,7 +34,7 @@ struct AllGlassEffect: View {
 //            glassContainer
 //            glassUnion
 //            glassTransition
-            textFieldTransition
+            textImageGlassEffect
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -73,7 +73,7 @@ extension AllGlassEffect {
             Text("Text Glass Effect")
                 .font(.title3)
                 .padding()
-                .glassEffect(.clear, in: .rect(cornerRadius: 24))
+                .glassEffect(.clear.interactive(), in: .rect(cornerRadius: 24))
             Image(systemName: "applelogo")
                 .font(.system(size: 48))
                 .padding()

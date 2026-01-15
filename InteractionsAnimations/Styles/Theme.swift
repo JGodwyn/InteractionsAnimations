@@ -27,3 +27,35 @@ enum BrandImages {
     // for all the brand images
     static let AppLogo : Image = Image("AppLogo")
 }
+
+extension Color {
+    init(hex: String) {
+        let hex = String(hex.dropFirst()).replacingOccurrences(
+            of: "#",
+            with: ""
+        )
+        var rgb: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&rgb)
+        let r = Double((rgb >> 16) & 0xFF) / 255.0
+        let g = Double((rgb >> 8) & 0xFF) / 255.0
+        let b = Double(rgb & 0xFF) / 255.0
+        let a = hex.count == 8 ? Double((rgb >> 24) & 0xFF) / 255.0 : 1.0
+        self.init(red: r, green: g, blue: b, opacity: a)
+    }
+
+    var hex: String {
+        let uiColor = UIColor(self)
+        var r: CGFloat = 0
+        var g: CGFloat = 0
+        var b: CGFloat = 0
+        var a: CGFloat = 0
+        uiColor.getRed(&r, green: &g, blue: &b, alpha: &a)
+        return String(
+            format: "#%02lX%02lX%02lX%02lX",
+            lroundf(Float(r * 255)),
+            lroundf(Float(g * 255)),
+            lroundf(Float(b * 255)),
+            lroundf(Float(a * 255))
+        )
+    }
+}

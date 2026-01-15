@@ -16,15 +16,10 @@ struct MainAuth: View {
     @State private var expandDropdown : Bool = false
     @State private var selectedCountry : Country?
     @State private var searchQuery : String = ""
+    @State private var expandOption : Bool = true
     
-    var countriesArray : [Country] {
-        if searchQuery.isEmpty {
-            return Country.allCases
-        } else {
-            return Country.allCases.filter{$0.rawValue.localizedStandardContains(searchQuery)}
-        }
-    }
-    
+    let symbolSet = CharacterSet.punctuationCharacters.union(.symbols)
+
     var body: some View {
         ZStack {
             Color(BrandColors.Gray0)
@@ -37,11 +32,12 @@ struct MainAuth: View {
                 Text("Enter your information to continue…")
                     .font(.system(size: 32, weight: .bold))
                     .kerning(-0.5)
-                
-                Group {
+
                     // input fields
                     TextField("Username", text: $userDetails.username)
+                        .customRoundedTextField(state: handleUsername(), height: 56, strokeWidth: 3)
                     
+                Group {
                     ZStack {
                         if secureText {
                             SecureField("Password", text: $userDetails.password)
@@ -52,6 +48,7 @@ struct MainAuth: View {
                         }
                     }
                     .overlay(alignment: .trailing) {
+                        // show and hide password
                         Image(systemName: secureText ? "eyebrow" : "eye.fill")
                             .foregroundStyle(.gray)
                             .frame(width: 48, height: 36)
@@ -65,17 +62,10 @@ struct MainAuth: View {
                             }
                     }
                 }
-                .padding()
-                .background(BrandColors.Gray100, in: .rect(cornerRadius: .infinity, style: .continuous))
-                .overlay {
-                    RoundedRectangle(cornerRadius: .infinity)
-                        .stroke(BrandColors.Gray200.opacity(0.5), lineWidth: 1)
-                    RoundedRectangle(cornerRadius: .infinity)
-                        .stroke(.black.opacity(0.1), lineWidth: 2)
-                        .blur(radius: 6)
-                        .offset(x: 1, y: 1)
-                        .mask(RoundedRectangle(cornerRadius: .infinity))
-                }
+                .customRoundedTextField(state: handlePassword(), height: 56, strokeWidth: 3, showSymbol: false)
+                
+                passwordCriteriaView()
+                
                 
                 if !expandDropdown {
                     HStack {
@@ -107,9 +97,8 @@ struct MainAuth: View {
                     .transition(.blurReplace.combined(with: .opacity))
                 }
                 
-                
                 Button {
-                    // main button
+                    handleFormSubmission()
                 } label: {
                     Text("Continue")
                         .fontWeight(.semibold)
@@ -117,6 +106,7 @@ struct MainAuth: View {
                         .frame(height: 40)
                 }
                 .buttonStyle(.glassProminent)
+                .disabled(buttonState)
             }
             .padding()
         }
@@ -131,6 +121,10 @@ struct MainAuth: View {
         .animation(.easeInOut(duration: 0.3), value: expandDropdown)
     }
     
+}
+
+extension MainAuth {
+    // views
     var logo : some View {
         VStack {
             Image("AppLogo")
@@ -231,17 +225,126 @@ struct MainAuth: View {
         }
     }
     
+    @ViewBuilder
+    func passwordCriteriaView() -> some View {
+        if !userDetails.password.isEmpty && !passwordChecksOut {
+            FlowLayout(spacing: 4) {
+                ValidationChips(label: "One number (0-9)", expanded: !passwordContainsNumber)
+                
+                ValidationChips(label: "One symbol (!@#$%^...)", expanded: !passwordContainsSymbol)
+
+                ValidationChips(label: "One uppercase letter(A-Z)", expanded: !passwordContainsUppercase)
+            }
+            .transition(.blurReplace)
+            .animation(.bouncy, value: userDetails)
+        }
+    }
+}
+
+extension MainAuth {
+    // computed properties
+    
+    var buttonState : Bool {
+        if userDetails.username.isEmpty || userDetails.password.isEmpty || selectedCountry == nil {
+            return true
+        }
+        return false
+    }
+    
+    var countriesArray : [Country] {
+        if searchQuery.isEmpty {
+            return Country.allCases
+        } else {
+            return Country.allCases.filter{$0.rawValue.localizedStandardContains(searchQuery)}
+        }
+    }
+    
+    var passwordContainsNumber : Bool {
+        userDetails.password.rangeOfCharacter(from: .decimalDigits) != nil
+    }
+    var passwordContainsSymbol : Bool {
+        userDetails.password.rangeOfCharacter(from: symbolSet) != nil
+    }
+    var passwordContainsUppercase : Bool {
+        userDetails.password.rangeOfCharacter(from: .uppercaseLetters) != nil
+    }
+    var passwordChecksOut : Bool {
+        userDetails.password.count > 5 && passwordContainsNumber && passwordContainsSymbol && passwordContainsUppercase
+    }
+}
+
+extension MainAuth {
+    // functions
+    
     func handleCountrySelection(item: Country) {
         if let theCountry = Country.allCases.first(where: { $0.id == item.id }) {
             selectedCountry = theCountry
         }
     }
     
+    func handleFormSubmission() {
+        // wiggle when there's an error in username and password
+        // and the user clicks continue
+    }
+    
+    func handlePassword() -> TextFieldStates {
+        // don't check if password is empty
+        guard !userDetails.password.isEmpty else {
+            return .base(message: "")
+        }
+        
+        // don't show any other error when character's less than 5
+        guard userDetails.password.count > 5 else {
+            return .error(message: "Password is too short")
+        }
+
+        // 1 number
+        if userDetails.password.rangeOfCharacter(from: .decimalDigits) == nil {
+            return .error(message: "") // message handled somewhere else
+        }
+        
+        // 1 symbol
+        if userDetails.password.rangeOfCharacter(from: symbolSet) == nil {
+            return .error(message: "") // message handled somewhere else
+        }
+        
+        // 1 uppercase letter
+        if userDetails.password.rangeOfCharacter(from: .uppercaseLetters) == nil {
+            return .error(message: "") // message handled somewhere else
+        }
+        
+        // if everything works out
+        return .success(message: "")
+    }
+    
+    func handleUsername() -> TextFieldStates {
+        // don't check if username is empty
+        guard !userDetails.username.isEmpty else { return .base(message: "") }
+        
+        // not enough text
+        if (userDetails.username.count < 3) {
+            return .error(message: "At least 3 characters")
+        }
+        
+        // name already exists
+        if UserInformation.existingValues.contains(where: { $0.username.lowercased() == userDetails.username.lowercased() }) {
+            return .error(message: "Someone else has this name")
+        }
+        
+        // if everything works out
+        return .success(message: "")
+    }
+    
+    
 }
+
+
 
 #Preview {
     MainAuth()
 }
+
+
 
 struct UserInformation : Equatable {
     var username : String
@@ -249,6 +352,15 @@ struct UserInformation : Equatable {
     
     static var defaultValue : UserInformation {
         .init(username: "", password: "")
+    }
+    
+    static var existingValues : [UserInformation] {
+        [
+            .init(username: "godwyn", password: "12345678"),
+            .init(username: "godwin", password: "12345678"),
+            .init(username: "john", password: "12345678"),
+            .init(username: "jgodwyn", password: "12345678"),
+        ]
     }
 }
 
