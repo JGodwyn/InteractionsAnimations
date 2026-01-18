@@ -10,6 +10,7 @@ import SwiftUI
 struct MainAuth: View {
     
     @Namespace private var expandDropdownNS
+    @Namespace private var navigateToOTPNS
     
     @State private var userDetails : UserInformation = .defaultValue
     @State private var secureText : Bool = true
@@ -17,110 +18,147 @@ struct MainAuth: View {
     @State private var selectedCountry : Country?
     @State private var searchQuery : String = ""
     @State private var expandOption : Bool = true
+    @State private var navigateToOTP : Bool = false
+    @State private var checkingFormDetails : Bool = false
+    
+    @FocusState var isFocused
     
     let symbolSet = CharacterSet.punctuationCharacters.union(.symbols)
 
     var body: some View {
-        ZStack {
-            Color(BrandColors.Gray0)
-                .ignoresSafeArea()
-            
-            VStack(alignment: .leading, spacing: 16) {
-                logo
-                    .wiggle(trigger: userDetails)
+        NavigationStack {
+            ZStack {
+                Color(BrandColors.Gray0)
+                    .ignoresSafeArea()
                 
-                Text("Enter your information to continue…")
-                    .font(.system(size: 32, weight: .bold))
-                    .kerning(-0.5)
-
+                VStack(alignment: .leading, spacing: 16) {
+                    logo
+                        .wiggle(trigger: userDetails)
+                    
+                    Text("Enter your information to continue…")
+                        .font(.system(size: 32, weight: .bold))
+                        .kerning(-0.5)
+                    
                     // input fields
                     TextField("Username", text: $userDetails.username)
                         .customRoundedTextField(state: handleUsername(), height: 56, strokeWidth: 3)
-                    
-                Group {
-                    ZStack {
-                        if secureText {
-                            SecureField("Password", text: $userDetails.password)
-                                .frame(height: 24)
-                        } else {
-                            TextField("Password", text: $userDetails.password)
-                                .frame(height: 24)
-                        }
-                    }
-                    .overlay(alignment: .trailing) {
-                        // show and hide password
-                        Image(systemName: secureText ? "eyebrow" : "eye.fill")
-                            .foregroundStyle(.gray)
-                            .frame(width: 48, height: 36)
-                            .glassEffect(.clear.interactive())
-                            .offset(x: 8)
-                            .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp)))
-                            .onTapGesture {
-                                withAnimation(.smooth(duration: 0.2)) {
-                                    secureText.toggle()
-                                }
+                        .textInputAutocapitalization(.never)
+                        .onChange(of: userDetails.username) {
+                            userDetails.username = userDetails.username.filter {
+                                !$0.isWhitespace
                             }
+                        }
+                        
+                    
+                    Group {
+                        ZStack {
+                            if secureText {
+                                SecureField("Password", text: $userDetails.password)
+                                    .frame(height: 24)
+                            } else {
+                                TextField("Password", text: $userDetails.password)
+                                    .frame(height: 24)
+                            }
+                        }
+                        .overlay(alignment: .trailing) {
+                            // show and hide password
+                            Image(systemName: secureText ? "eyebrow" : "eye.fill")
+                                .foregroundStyle(.gray)
+                                .frame(width: 48, height: 36)
+                                .glassEffect(.clear.interactive())
+                                .offset(x: 8)
+                                .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp)))
+                                .onTapGesture {
+                                    withAnimation(.smooth(duration: 0.2)) {
+                                        secureText.toggle()
+                                    }
+                                }
+                        }
                     }
-                }
-                .customRoundedTextField(state: handlePassword(), height: 56, strokeWidth: 3, showSymbol: false)
-                
-                passwordCriteriaView()
-                
-                
-                if !expandDropdown {
-                    HStack {
+                    .customRoundedTextField(state: handlePassword(), height: 56, strokeWidth: 3, showSymbol: false)
+
+                    passwordCriteriaView()
+
+                    if !expandDropdown {
                         HStack {
-                            Image(systemName: "globe")
-                            Text("Where?")
-                        }
-                        .foregroundStyle(.gray)
-                        Spacer()
-                        
-                        if let selectCountry = selectedCountry {
-                            Text(selectCountry.rawValue)
-                                .bold()
-                        } else {
-                            Text("Select country")
+                            HStack {
+                                Image(systemName: "globe")
+                                Text("Where are you?")
+                            }
+                            .foregroundStyle(.gray)
+                            Spacer()
+                            
+                            if let selectCountry = selectedCountry {
+                                Text(selectCountry.rawValue)
+                                    .bold()
+                            } else {
+                                HStack {
+                                    Text("Select country")
+                                }
                                 .foregroundStyle(BrandColors.Gray300)
+                                
+                            }
                         }
-                        
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 24)
-                    .padding()
-                    .padding(.trailing, 4)
-                    .background(BrandColors.Gray100, in: .rect(cornerRadius: .infinity, style: .continuous))
-                    .matchedGeometryEffect(id: "expandDropdown", in: expandDropdownNS, properties: .position)
-                    .onTapGesture {
-                        expandDropdown = true
-                    }
-                    .transition(.blurReplace.combined(with: .opacity))
-                }
-                
-                Button {
-                    handleFormSubmission()
-                } label: {
-                    Text("Continue")
-                        .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 40)
+                        .frame(height: 24)
+                        .padding()
+                        .padding(.trailing, 4)
+                        .background(BrandColors.Gray100, in: .rect(cornerRadius: .infinity, style: .continuous))
+                        .matchedGeometryEffect(id: "expandDropdown", in: expandDropdownNS, properties: .position)
+                        .onTapGesture {
+                            expandDropdown = true
+                        }
+                        .transition(.blurReplace.combined(with: .opacity))
+                    }
+                    
+                    Button {
+                        handleFormSubmission()
+                    } label: {
+                        if !checkingFormDetails {
+                            Text("Continue")
+                                .fontWeight(.semibold)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 40)
+                        } else {
+                            ProgressView()
+                                .tint(.white)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 40)
+                        }
+                    }
+                    .buttonStyle(.glassProminent)
+                    .disabled(buttonState)
+                    .matchedTransitionSource(id: "OTPScreen", in: navigateToOTPNS)
+                    .navigationDestination(isPresented: $navigateToOTP) {
+                        OTP(userDetails: userDetails)
+                            .navigationTransition(.zoom(sourceID: "OTPScreen", in: navigateToOTPNS))
+                    }
+                    
+                    Button("Fill all information") {
+                        userDetails.username = "Godwin John"
+                        userDetails.password = "John#123"
+                        selectedCountry = .nigeria
+                    }
+                    .buttonStyle(.glassProminent)
+                    
                 }
-                .buttonStyle(.glassProminent)
-                .disabled(buttonState)
+                .padding()
             }
-            .padding()
-        }
-        .overlay {
-            if expandDropdown {
-                dropdownContent
-                
+            .overlay {
+                if expandDropdown {
+                    dropdownContent
+                }
+            }
+            .animation(.smooth, value: userDetails)
+            .animation(.smooth(duration: 0.3), value: countriesArray)
+            .animation(.easeInOut(duration: 0.3), value: expandDropdown)
+            .animation(.easeInOut(duration: 0.3), value: checkingFormDetails)
+            .onAppear {
+                userDetails = .defaultValue
+                selectedCountry = nil
             }
         }
-        .animation(.smooth, value: userDetails)
-        .animation(.smooth(duration: 0.3), value: countriesArray)
-        .animation(.easeInOut(duration: 0.3), value: expandDropdown)
     }
-    
 }
 
 extension MainAuth {
@@ -245,10 +283,16 @@ extension MainAuth {
     // computed properties
     
     var buttonState : Bool {
-        if userDetails.username.isEmpty || userDetails.password.isEmpty || selectedCountry == nil {
+        // true = disabled
+        guard !userDetails.username.isEmpty, !userDetails.password.isEmpty, selectedCountry != nil else {
             return true
         }
-        return false
+        
+        if passwordChecksOut && handleUsername() == .success(message: "") {
+            return false
+        } else {
+            return true
+        }
     }
     
     var countriesArray : [Country] {
@@ -283,8 +327,12 @@ extension MainAuth {
     }
     
     func handleFormSubmission() {
-        // wiggle when there's an error in username and password
-        // and the user clicks continue
+        checkingFormDetails = true
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            checkingFormDetails = false
+            navigateToOTP = true
+        }
     }
     
     func handlePassword() -> TextFieldStates {

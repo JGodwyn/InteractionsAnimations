@@ -10,34 +10,53 @@ import SwiftUI
 struct CustomRoundedTextField : ViewModifier {
     var state : TextFieldStates
     var height : CGFloat
+    var cornerRadius : CGFloat
     var strokeWidth : CGFloat
     var shadowDepth : CGFloat
     var showShadow : Bool
     var showSymbol : Bool
+    @FocusState private var isFocused
     
     func body(content: Content) -> some View {
+        var effectiveState : TextFieldStates {
+            // i want to have it check that the current state is not
+            // success or error. if it is, don't change to focus, else ...
+            // if the item is focused, change to focus
+            guard self.state.stripMessage() != "success" && self.state.stripMessage() != "error" else {
+                return state
+            }
+            
+            if isFocused {
+                return .focused(message: "")
+            }
+            
+            return state
+            
+        }
+        
         VStack(alignment: .leading) {
             content
+                .focused($isFocused)
                 .padding(.horizontal)
                 .frame(height: height)
-                .background(state.backgroundColor, in: .rect(cornerRadius: .infinity, style: .continuous))
+                .background(effectiveState.backgroundColor, in: .rect(cornerRadius: cornerRadius, style: .continuous))
                 .overlay {
-                    RoundedRectangle(cornerRadius: .infinity)
-                        .stroke(state.strokeColor, lineWidth: strokeWidth)
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .stroke(effectiveState.strokeColor, lineWidth: strokeWidth)
                     
                     if showShadow {
-                        RoundedRectangle(cornerRadius: .infinity)
+                        RoundedRectangle(cornerRadius: cornerRadius)
                             .stroke(.black.opacity(0.2), lineWidth: shadowDepth)
                             .blur(radius: 6)
                             .offset(x: 1, y: 1)
-                            .mask(RoundedRectangle(cornerRadius: .infinity))
+                            .mask(RoundedRectangle(cornerRadius: cornerRadius))
                     }
                 }
                 .overlay(alignment: .trailing) {
                     if showSymbol {
-                        if let theImage = state.symbol {
+                        if let theImage = effectiveState.symbol {
                             Image(systemName: theImage)
-                                .foregroundStyle(state.helperTextColor)
+                                .foregroundStyle(effectiveState.helperTextColor)
                                 .font(.system(size: 22))
                                 .padding(.horizontal, 12)
                                 .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp)))
@@ -46,14 +65,14 @@ struct CustomRoundedTextField : ViewModifier {
                     }
                     
                 }
-            
-            if !state.helperText.isEmpty {
-                Text(state.helperText)
-                    .foregroundStyle(state.helperTextColor)
+            if !effectiveState.helperText.isEmpty {
+                Text(effectiveState.helperText)
+                    .foregroundStyle(effectiveState.helperTextColor)
                     .fontWeight(.medium)
             }
         }
         .animation(.easeInOut(duration: 0.3), value: state)
+        .animation(.easeInOut(duration: 0.3), value: effectiveState)
     }
 }
 
@@ -63,14 +82,29 @@ struct CustomRoundedTextField : ViewModifier {
             .ignoresSafeArea()
         TextField("Name", text: .constant(""))
             .customRoundedTextField(state: .success(message: "this is the helper text"), height: 48, strokeWidth: 2)
+            .padding()
     }
 }
 
 
 enum TextFieldStates : Equatable {
     case base(message : String)
+    case focused(message : String)
     case error(message : String)
     case success(message : String)
+    
+    func stripMessage() -> String {
+        switch self {
+        case .base:
+            return "base"
+        case .error:
+            return "error"
+        case .success:
+            return "success"
+        case .focused:
+            return "focused"
+        }
+    }
     
     var backgroundColor : Color {
         switch self {
@@ -80,6 +114,8 @@ enum TextFieldStates : Equatable {
             return .red.opacity(0.1)
         case .success:
             return .green.opacity(0.1)
+        case .focused:
+            return .blue.opacity(0.1)
         }
     }
     
@@ -91,6 +127,8 @@ enum TextFieldStates : Equatable {
             return .red
         case .success:
             return .green
+        case .focused:
+            return .blue.opacity(0.5)
         }
     }
     
@@ -101,6 +139,8 @@ enum TextFieldStates : Equatable {
         case .error(let message):
             return message
         case .success(let message):
+            return message
+        case .focused(let message):
             return message
         }
     }
@@ -113,6 +153,8 @@ enum TextFieldStates : Equatable {
             return .red
         case .success:
             return Color(hex: "00A600")
+        case .focused:
+            return BrandColors.Gray500
         }
     }
     
@@ -124,6 +166,8 @@ enum TextFieldStates : Equatable {
             return "exclamationmark.octagon.fill"
         case .success:
             return "checkmark"
+        case .focused:
+            return nil
         }
     }
 }
@@ -134,11 +178,12 @@ extension View {
     func customRoundedTextField(
         state : TextFieldStates = .base(message: ""),
         height : CGFloat = 40,
+        cornerRadius : CGFloat = .infinity,
         strokeWidth : CGFloat = 2,
         shadowDepth : CGFloat = 2,
         showShadow : Bool = true,
         showSymbol : Bool = true,
     ) -> some View {
-        self.modifier(CustomRoundedTextField(state: state, height: height, strokeWidth: strokeWidth, shadowDepth: shadowDepth, showShadow: showShadow, showSymbol: showSymbol))
+        self.modifier(CustomRoundedTextField(state: state, height: height, cornerRadius: cornerRadius, strokeWidth: strokeWidth, shadowDepth: shadowDepth, showShadow: showShadow, showSymbol: showSymbol))
     }
 }
