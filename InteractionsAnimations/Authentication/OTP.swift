@@ -10,6 +10,7 @@ import SwiftUI
 struct OTP: View {
 
     let userDetails: UserInformation
+    @Namespace private var resendCodeNS
     
     @State private var showNotification: Bool = false
     @State private var expandBanner: Bool = false
@@ -17,6 +18,12 @@ struct OTP: View {
     @State private var thereIsError: Bool = false
     @State private var OTPCodes : [String] = ["", "", "", ""]
     @State private var buttonIsLoading : Bool = false
+    @State private var OTPAttempts : Int = 0
+    @State private var remainingTime : Int = 10 // for the timer
+    
+    @State private var resetTimer = UUID()
+    @State private var newCodeSent : Bool = false
+    @State private var isCountingDown = false
     
     @FocusState private var focusedField: Int?
     
@@ -26,9 +33,6 @@ struct OTP: View {
         ["0", "0", "0", "0"],
         ["5", "5", "5", "5"]
     ]
-    
-    // if they enter the wrong code 3 times
-    // expand the error and tell them to resend
 
     var body: some View {
         GeometryReader { geo in
@@ -77,7 +81,9 @@ struct OTP: View {
                     )
                     .font(.system(size: 28, weight: .bold))
                     .kerning(-0.5)
-                
+                    
+                    countdownTimer(countdown: $remainingTime)
+                    
                     HStack {
                         ForEach(0..<4, id: \.self) { index in
                             TextField("•", text: $OTPCodes[index])
@@ -95,15 +101,27 @@ struct OTP: View {
                         }
                     }
                     
-                    // error message
+                    // error banner
                     if thereIsError {
-                        HStack {
-                            Image(systemName: "exclamationmark.circle.fill")
-                            Text("This code is incorrect. Try again")
-                                .fontWeight(.semibold)
+                        // too many OTP attempts
+                        if OTPAttempts >= 3 {
+                            HStack(alignment: .top) {
+                                Image(systemName: "exclamationmark.circle.fill")
+                                Text("You've entered the wrong code multiple tiems. Try resending the code.")
+                                    .fontWeight(.semibold)
+                            }
+                            .foregroundStyle(.red)
+                            .transition(.move(edge: .top).combined(with: .blurReplace))
+                        } else {
+                            HStack(alignment: .top) {
+                                Image(systemName: "exclamationmark.circle.fill")
+                                Text("This code is incorrect. Check your email and try again")
+                                    .fontWeight(.semibold)
+                            }
+                            .foregroundStyle(.red)
+                            .transition(.move(edge: .top).combined(with: .blurReplace))
                         }
-                        .foregroundStyle(.red)
-                        .transition(.move(edge: .top).combined(with: .blurReplace))
+                        
                     }
                     
                     Button {
@@ -119,12 +137,11 @@ struct OTP: View {
                                 .fontWeight(.semibold)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 40)
+
                         }
                     }
                     .buttonStyle(.glassProminent)
                     .disabled(OTPCodes.contains("") ? true : false)
-
-                    
                 }
                 .padding(.horizontal, 20)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -144,6 +161,87 @@ struct OTP: View {
         .navigationBarBackButtonHidden()
         .animation(.smooth, value: showNotification)
         .animation(.easeOut, value: thereIsError)
+        .animation(.easeOut, value: OTPAttempts)
+        .animation(.interactiveSpring(response: 0.6, dampingFraction: 0.8), value: remainingTime)
+        .animation(.interactiveSpring(response: 0.6, dampingFraction: 0.8), value: newCodeSent)
+    }
+    
+    
+    @ViewBuilder
+    func countdownTimer (countdown: Binding<Int>) -> some View {
+        var timeElapsed: Bool {
+            return countdown.wrappedValue == 0
+        }
+        
+        var timerLabel : String {
+            guard !newCodeSent else {
+                return "We sent another code"
+            }
+            return !timeElapsed ? "You can ask for another code in" : "Didn't get the code?"
+        }
+        
+        GlassEffectContainer(spacing: 24) {
+            HStack {
+                HStack(spacing: 8) {
+                    if newCodeSent {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(BrandColors.Gray0)
+                            .transition(.move(edge: .leading).combined(with: .blurReplace))
+                    }
+                    
+                    Text(timerLabel)
+                        .contentTransition(.interpolate)
+                        .foregroundStyle(newCodeSent ? BrandColors.Gray0 : BrandColors.Gray500)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .fontWeight(newCodeSent ? .semibold : .regular)
+                    
+                    if !timeElapsed && !newCodeSent {
+                        Text("\(countdown.wrappedValue)s")
+                            .fontWeight(.bold)
+                            .contentTransition(.numericText())
+                            .transition(.blurReplace)
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+                .glassEffect(.regular.tint(newCodeSent ? .green : BrandColors.Gray0))
+                
+                if timeElapsed && !newCodeSent {
+                    Button("Resend") {
+                        countdown.wrappedValue = 10
+                        resetTimer = UUID()
+                        newCodeSent = true
+                    }
+                    .fixedSize(horizontal: true, vertical: false)
+                    .buttonStyle(.glassProminent)
+                    .tint(BrandColors.Gray0)
+                    .foregroundStyle(BrandColors.Gray700)
+                    .transition(.blurReplace)
+                    .fontWeight(.semibold)
+                    .disabled(isCountingDown)
+                }
+            }
+        }
+        .task(id: resetTimer) {
+            guard !isCountingDown, countdown.wrappedValue > 0 else { return }
+            
+            // before the timer
+            isCountingDown = true
+            
+            while countdown.wrappedValue > 0 {
+                try? await Task.sleep(for: .seconds(1))
+                countdown.wrappedValue -= 1
+            }
+            
+            // after the timer
+            isCountingDown = false
+        }
+        .task(id: newCodeSent) {
+            if newCodeSent == true {
+                try? await Task.sleep(for: .seconds(4))
+                newCodeSent = false
+            }
+        }
     }
     
     func handleInput(at index: Int, oldValue: String, newValue: String) {
@@ -168,11 +266,17 @@ struct OTP: View {
     func handleOTPSubmission() {
         if usedOTPCodes.contains(OTPCodes) {
             buttonIsLoading = true
+            thereIsError = false
             Task {
                 try? await Task.sleep(for: .seconds(1))
                 thereIsError = true
                 buttonIsLoading = false
+                OTPAttempts += 1
             }
+        } else {
+            // what happens when everything checks out
+//            buttonIsLoading = true
+            
         }
     }
 }
@@ -185,3 +289,4 @@ struct OTP: View {
 struct OTPdata {
     var OTP : [String]
 }
+

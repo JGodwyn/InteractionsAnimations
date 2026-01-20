@@ -11,6 +11,7 @@ struct MainAuth: View {
     
     @Namespace private var expandDropdownNS
     @Namespace private var navigateToOTPNS
+    @FocusState private var focusState: focusFields?
     
     @State private var userDetails : UserInformation = .defaultValue
     @State private var secureText : Bool = true
@@ -20,142 +21,167 @@ struct MainAuth: View {
     @State private var expandOption : Bool = true
     @State private var navigateToOTP : Bool = false
     @State private var checkingFormDetails : Bool = false
+    @State private var isKeyboardVisible : Bool = false
     
-    @FocusState var isFocused
+    
+    enum focusFields {
+        case username, password
+    }
     
     let symbolSet = CharacterSet.punctuationCharacters.union(.symbols)
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                Color(BrandColors.Gray0)
-                    .ignoresSafeArea()
-                
-                VStack(alignment: .leading, spacing: 16) {
-                    logo
-                        .wiggle(trigger: userDetails)
-                    
-                    Text("Enter your information to continue…")
-                        .font(.system(size: 32, weight: .bold))
-                        .kerning(-0.5)
-                    
-                    // input fields
-                    TextField("Username", text: $userDetails.username)
-                        .customRoundedTextField(state: handleUsername(), height: 56, strokeWidth: 3)
-                        .textInputAutocapitalization(.never)
-                        .onChange(of: userDetails.username) {
-                            userDetails.username = userDetails.username.filter {
-                                !$0.isWhitespace
+            VStack(alignment: .leading) {
+                    if expandDropdown || !isKeyboardVisible {
+                        Spacer()
+                    }
+                    VStack(alignment: .leading, spacing: 16) {
+                        logo
+                            .wiggle(trigger: userDetails)
+                        
+                        Text("Enter your information to continue")
+                            .fixedSize(horizontal: false, vertical: true)
+                            .font(.system(size: 32, weight: .bold))
+                            .kerning(-0.5)
+                        
+                        // input fields
+                        TextField("Username", text: $userDetails.username)
+                            .customRoundedTextField(state: handleUsername(), height: 56, strokeWidth: 3)
+                            .textInputAutocapitalization(.never)
+                            .onChange(of: userDetails.username) {
+                                userDetails.username = userDetails.username.filter {
+                                    !$0.isWhitespace
+                                }
                             }
+                            .focused($focusState, equals: .username)
+                        
+                        Group {
+                            ZStack {
+                                if secureText {
+                                    SecureField("Password", text: $userDetails.password)
+                                        .frame(height: 24)
+                                } else {
+                                    TextField("Password", text: $userDetails.password)
+                                        .frame(height: 24)
+                                }
+                            }
+                            .overlay(alignment: .trailing) {
+                                // show and hide password
+                                Image(systemName: secureText ? "eyebrow" : "eye.fill")
+                                    .foregroundStyle(.gray)
+                                    .frame(width: 48, height: 36)
+                                    .glassEffect(.clear.interactive())
+                                    .offset(x: 8)
+                                    .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp)))
+                                    .onTapGesture {
+                                        withAnimation(.smooth(duration: 0.2)) {
+                                            secureText.toggle()
+                                        }
+                                    }
+                            }
+                        }
+                        .customRoundedTextField(state: handlePassword(), height: 56, strokeWidth: 3, showSymbol: false)
+                        .focused($focusState, equals: .password)
+                        
+                        passwordCriteriaView()
+                        
+                        if !expandDropdown {
+                            HStack {
+                                HStack {
+                                    Image(systemName: "globe")
+                                    Text("Where are you?")
+                                }
+                                .foregroundStyle(.gray)
+                                Spacer()
+                                
+                                if let selectCountry = selectedCountry {
+                                    Text(selectCountry.rawValue)
+                                        .bold()
+                                } else {
+                                    HStack {
+                                        Text("Select country")
+                                    }
+                                    .foregroundStyle(BrandColors.Gray300)
+                                    
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 24)
+                            .padding()
+                            .padding(.trailing, 4)
+                            .background(BrandColors.Gray100, in: .rect(cornerRadius: .infinity, style: .continuous))
+                            .matchedGeometryEffect(id: "expandDropdown", in: expandDropdownNS, properties: .position)
+                            .onTapGesture {
+                                expandDropdown = true
+                                isKeyboardVisible = false
+                                focusState = nil
+                            }
+                            .transition(.blurReplace.combined(with: .opacity))
                         }
                         
-                    
-                    Group {
-                        ZStack {
-                            if secureText {
-                                SecureField("Password", text: $userDetails.password)
-                                    .frame(height: 24)
+                        Button {
+                            handleFormSubmission()
+                        } label: {
+                            if !checkingFormDetails {
+                                Text("Continue")
+                                    .fontWeight(.semibold)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 40)
                             } else {
-                                TextField("Password", text: $userDetails.password)
-                                    .frame(height: 24)
+                                ProgressView()
+                                    .tint(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 40)
                             }
                         }
-                        .overlay(alignment: .trailing) {
-                            // show and hide password
-                            Image(systemName: secureText ? "eyebrow" : "eye.fill")
-                                .foregroundStyle(.gray)
-                                .frame(width: 48, height: 36)
-                                .glassEffect(.clear.interactive())
-                                .offset(x: 8)
-                                .contentTransition(.symbolEffect(.replace.magic(fallback: .downUp)))
-                                .onTapGesture {
-                                    withAnimation(.smooth(duration: 0.2)) {
-                                        secureText.toggle()
-                                    }
-                                }
+                        .buttonStyle(.glassProminent)
+                        .disabled(buttonState)
+                        .matchedTransitionSource(id: "OTPScreen", in: navigateToOTPNS)
+                        .navigationDestination(isPresented: $navigateToOTP) {
+                            OTP(userDetails: userDetails)
+                                .navigationTransition(.zoom(sourceID: "OTPScreen", in: navigateToOTPNS))
                         }
+                        
+//                        Button("Fill all information") {
+//                            userDetails.username = "Godwin John"
+//                            userDetails.password = "John#123"
+//                            selectedCountry = .nigeria
+//                        }
+//                        .buttonStyle(.glassProminent)
                     }
-                    .customRoundedTextField(state: handlePassword(), height: 56, strokeWidth: 3, showSymbol: false)
-
-                    passwordCriteriaView()
-
-                    if !expandDropdown {
-                        HStack {
-                            HStack {
-                                Image(systemName: "globe")
-                                Text("Where are you?")
-                            }
-                            .foregroundStyle(.gray)
-                            Spacer()
-                            
-                            if let selectCountry = selectedCountry {
-                                Text(selectCountry.rawValue)
-                                    .bold()
-                            } else {
-                                HStack {
-                                    Text("Select country")
-                                }
-                                .foregroundStyle(BrandColors.Gray300)
-                                
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 24)
-                        .padding()
-                        .padding(.trailing, 4)
-                        .background(BrandColors.Gray100, in: .rect(cornerRadius: .infinity, style: .continuous))
-                        .matchedGeometryEffect(id: "expandDropdown", in: expandDropdownNS, properties: .position)
-                        .onTapGesture {
-                            expandDropdown = true
-                        }
-                        .transition(.blurReplace.combined(with: .opacity))
-                    }
-                    
-                    Button {
-                        handleFormSubmission()
-                    } label: {
-                        if !checkingFormDetails {
-                            Text("Continue")
-                                .fontWeight(.semibold)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 40)
-                        } else {
-                            ProgressView()
-                                .tint(.white)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 40)
-                        }
-                    }
-                    .buttonStyle(.glassProminent)
-                    .disabled(buttonState)
-                    .matchedTransitionSource(id: "OTPScreen", in: navigateToOTPNS)
-                    .navigationDestination(isPresented: $navigateToOTP) {
-                        OTP(userDetails: userDetails)
-                            .navigationTransition(.zoom(sourceID: "OTPScreen", in: navigateToOTPNS))
-                    }
-                    
-                    Button("Fill all information") {
-                        userDetails.username = "Godwin John"
-                        userDetails.password = "John#123"
-                        selectedCountry = .nigeria
-                    }
-                    .buttonStyle(.glassProminent)
-                    
-                }
-                .padding()
+                    .padding()
+                
+                    Spacer()
+                
             }
+            .frame(maxHeight: .infinity)
             .overlay {
                 if expandDropdown {
                     dropdownContent
+                        .scrollDismissesKeyboard(.interactively)
                 }
             }
             .animation(.smooth, value: userDetails)
             .animation(.smooth(duration: 0.3), value: countriesArray)
             .animation(.easeInOut(duration: 0.3), value: expandDropdown)
+            .animation(.easeInOut(duration: 0.3), value: isKeyboardVisible)
             .animation(.easeInOut(duration: 0.3), value: checkingFormDetails)
             .onAppear {
                 userDetails = .defaultValue
                 selectedCountry = nil
+                focusState = .username
+            }
+            .ignoresSafeArea(.keyboard)
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+                withAnimation { // keyboard is about to come out
+                    isKeyboardVisible = true
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+                withAnimation { // just before keyboard disappears
+                    isKeyboardVisible = false
+                }
             }
         }
     }
@@ -196,6 +222,7 @@ extension MainAuth {
                         if !countriesArray.isEmpty {
                             ForEach(countriesArray) { item in
                                 Button {
+                                    isKeyboardVisible = false
                                     expandDropdown = false
                                     searchQuery = ""
                                     handleCountrySelection(item: item)
