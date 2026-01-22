@@ -12,6 +12,9 @@ struct OTP: View {
     let userDetails: UserInformation
     @Namespace private var resendCodeNS
     
+    @Namespace private var navigatateToHomepageNS
+    @State private var navigateToHomepage: Bool = false
+    
     @State private var showNotification: Bool = false
     @State private var expandBanner: Bool = false
     @State private var contentHeight: CGFloat = 0
@@ -24,6 +27,7 @@ struct OTP: View {
     @State private var resetTimer = UUID()
     @State private var newCodeSent : Bool = false
     @State private var isCountingDown = false
+
     
     @FocusState private var focusedField: Int?
     
@@ -36,8 +40,8 @@ struct OTP: View {
 
     var body: some View {
         GeometryReader { geo in
-            VStack(alignment: .leading, spacing: 16) {
-                if showNotification {
+                VStack(alignment: .leading, spacing: 16) {
+                    if showNotification {
                         HStack(alignment: .top) {
                             Image(systemName: "person.fill.checkmark")
                                 .foregroundStyle(Color(hex: "00C000"))
@@ -69,94 +73,118 @@ struct OTP: View {
                                 .frame(width: 4)
                         }
                         .onAppear {
-                                withAnimation {
-                                    expandBanner = true
-                                }
-                        }
-                }
-
-                VStack(alignment: .leading, spacing: 24) { // main stack
-                    Text(
-                        "Enter the code sent to \(Text("`...nn@gmail.com`").bold().foregroundStyle(BrandColors.Gray400)) to continue."
-                    )
-                    .font(.system(size: 28, weight: .bold))
-                    .kerning(-0.5)
-                    
-                    countdownTimer(countdown: $remainingTime)
-                    
-                    HStack {
-                        ForEach(0..<4, id: \.self) { index in
-                            TextField("•", text: $OTPCodes[index])
-                                .customRoundedTextField(state: thereIsError ? .error(message: "") : .base(message: ""), height: 88, cornerRadius: 24, strokeWidth: 4, showSymbol: false)
-                                .font(.title.bold())
-                                .keyboardType(.numberPad)
-                                .frame(width: 72)
-                                .multilineTextAlignment(.center)
-                                .monospaced()
-                                .focused($focusedField, equals: index)
-                                .onChange(of: OTPCodes[index]) { oldValue, newValue in
-                                    handleInput(at: index, oldValue: oldValue, newValue: newValue)
-                                    thereIsError = false
-                                }
+                            withAnimation {
+                                expandBanner = true
+                            }
                         }
                     }
                     
-                    // error banner
-                    if thereIsError {
-                        // too many OTP attempts
-                        if OTPAttempts >= 3 {
-                            HStack(alignment: .top) {
-                                Image(systemName: "exclamationmark.circle.fill")
-                                Text("You've entered the wrong code multiple tiems. Try resending the code.")
-                                    .fontWeight(.semibold)
+                    VStack(alignment: .leading, spacing: 24) { // main stack
+                        Text(
+                            "Enter the code sent to \(Text("`...nn@gmail.com`").bold().foregroundStyle(BrandColors.Gray400)) to continue."
+                        )
+                        .font(.system(size: 28, weight: .bold))
+                        .kerning(-0.5)
+                        
+                        countdownTimer(countdown: $remainingTime)
+                        
+                        HStack {
+                            ForEach(0..<4, id: \.self) { index in
+                                TextField("•", text: $OTPCodes[index])
+                                    .customRoundedTextField(state: thereIsError ? .error(message: "") : .base(message: ""), height: 88, cornerRadius: 24, strokeWidth: 4, showSymbol: false)
+                                    .font(.title.bold())
+                                    .keyboardType(.numberPad)
+                                    .frame(width: 72)
+                                    .multilineTextAlignment(.center)
+                                    .monospaced()
+                                    .focused($focusedField, equals: index)
+                                    .onChange(of: OTPCodes[index]) { oldValue, newValue in
+                                        handleInput(at: index, oldValue: oldValue, newValue: newValue)
+                                        thereIsError = false
+                                    }
                             }
-                            .foregroundStyle(.red)
-                            .transition(.move(edge: .top).combined(with: .blurReplace))
-                        } else {
-                            HStack(alignment: .top) {
-                                Image(systemName: "exclamationmark.circle.fill")
-                                Text("This code is incorrect. Check your email and try again")
-                                    .fontWeight(.semibold)
-                            }
-                            .foregroundStyle(.red)
-                            .transition(.move(edge: .top).combined(with: .blurReplace))
                         }
                         
-                    }
-                    
-                    Button {
-                        handleOTPSubmission()
-                    } label: {
-                        if buttonIsLoading {
-                            ProgressView()
-                                .tint(.white)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 40)
-                        } else {
-                            Text("Continue")
-                                .fontWeight(.semibold)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 40)
-
+                        // error banner
+                        if thereIsError {
+                            // too many OTP attempts
+                            if OTPAttempts >= 3 {
+                                HStack(alignment: .top) {
+                                    Image(systemName: "exclamationmark.circle.fill")
+                                    Text("You've entered the wrong code multiple tiems. Try resending the code.")
+                                        .fontWeight(.semibold)
+                                }
+                                .foregroundStyle(.red)
+                                .transition(.move(edge: .top).combined(with: .blurReplace))
+                            } else {
+                                HStack(alignment: .top) {
+                                    Image(systemName: "exclamationmark.circle.fill")
+                                    Text("This code is incorrect. Check your email and try again")
+                                        .fontWeight(.semibold)
+                                }
+                                .foregroundStyle(.red)
+                                .transition(.move(edge: .top).combined(with: .blurReplace))
+                            }
+                            
+                        }
+                        
+                        Button {
+                            handleOTPSubmission()
+                        } label: {
+                            if buttonIsLoading {
+                                ProgressView()
+                                    .tint(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 40)
+                            } else {
+                                Text("Continue")
+                                    .fontWeight(.semibold)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 40)
+                                
+                            }
+                        }
+                        .buttonStyle(.glassProminent)
+                        .disabled(OTPCodes.contains("") ? true : false)
+                        .matchedTransitionSource(id: "homepage", in: navigatateToHomepageNS)
+                        .navigationDestination(isPresented: $navigateToHomepage) {
+                            MainAuthHomepage()
+                                .navigationTransition(.zoom(sourceID: "homepage", in: navigatateToHomepageNS))
                         }
                     }
-                    .buttonStyle(.glassProminent)
-                    .disabled(OTPCodes.contains("") ? true : false)
+                    .padding(.horizontal, 20)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .onAppear {
+                        focusedField = 0
+                    }
                 }
-                .padding(.horizontal, 20)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .gesture(
+                    DragGesture()
+                        .onChanged { _ in
+                            // Intercept and do nothing - blocks the system gesture and therefore the swipe/slide to dismiss interactions
+                            // feels kinda hacky though
+                        }
+                )
+                .animation(.easeOut, value: OTPCodes)
                 .onAppear {
-                    focusedField = 0
+                    Task {
+                        try? await Task.sleep(for: .seconds(0.3))
+                        showNotification = true
+                    }
                 }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .animation(.easeOut, value: OTPCodes)
-            .onAppear {
-                Task {
-                    try? await Task.sleep(for: .seconds(0.3))
-                    showNotification = true
+                .background {
+                    ZStack {
+                        BrandColors.Gray0
+                            .ignoresSafeArea()
+                    }
+                    .gesture(
+                        DragGesture()
+                            .onChanged { _ in
+                                // prevents slide interaction on any extra space
+                            }
+                    )
                 }
-            }
         }
         .navigationBarBackButtonHidden()
         .animation(.smooth, value: showNotification)
@@ -175,7 +203,7 @@ struct OTP: View {
         
         var timerLabel : String {
             guard !newCodeSent else {
-                return "We sent another code"
+                return "We've sent another code"
             }
             return !timeElapsed ? "You can ask for another code in" : "Didn't get the code?"
         }
@@ -274,9 +302,12 @@ struct OTP: View {
                 OTPAttempts += 1
             }
         } else {
-            // what happens when everything checks out
-//            buttonIsLoading = true
-            
+            buttonIsLoading = true
+            Task {
+                try? await Task.sleep(for: .seconds(2))
+                buttonIsLoading = false
+                navigateToHomepage = true
+            }
         }
     }
 }

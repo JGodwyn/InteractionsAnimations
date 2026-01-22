@@ -36,6 +36,9 @@ struct MainAuth: View {
                     if expandDropdown || !isKeyboardVisible {
                         Spacer()
                     }
+                Rectangle().fill(.clear)
+                    .frame(height: isKeyboardVisible ? 120 : 0)
+                
                     VStack(alignment: .leading, spacing: 16) {
                         logo
                             .wiggle(trigger: userDetails)
@@ -83,6 +86,7 @@ struct MainAuth: View {
                         }
                         .customRoundedTextField(state: handlePassword(), height: 56, strokeWidth: 3, showSymbol: false)
                         .focused($focusState, equals: .password)
+                        .textInputAutocapitalization(.never)
                         
                         passwordCriteriaView()
                         
