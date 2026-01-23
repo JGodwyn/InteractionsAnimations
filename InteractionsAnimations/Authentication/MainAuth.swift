@@ -147,12 +147,12 @@ struct MainAuth: View {
                                 .navigationTransition(.zoom(sourceID: "OTPScreen", in: navigateToOTPNS))
                         }
                         
-//                        Button("Fill all information") {
-//                            userDetails.username = "Godwin John"
-//                            userDetails.password = "John#123"
-//                            selectedCountry = .nigeria
-//                        }
-//                        .buttonStyle(.glassProminent)
+                        Button("Fill all information") {
+                            userDetails.username = "Godwin John"
+                            userDetails.password = "John#123"
+                            selectedCountry = .nigeria
+                        }
+                        .buttonStyle(.glassProminent)
                     }
                     .padding()
                 
