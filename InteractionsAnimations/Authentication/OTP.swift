@@ -119,7 +119,7 @@ struct OTP: View {
                             } else {
                                 HStack(alignment: .top) {
                                     Image(systemName: "exclamationmark.circle.fill")
-                                    Text("This code is incorrect. Check your email and try again")
+                                    Text("This code is incorrect")
                                         .fontWeight(.semibold)
                                 }
                                 .foregroundStyle(.red)
@@ -129,6 +129,7 @@ struct OTP: View {
                         }
                         
                         Button {
+                            focusedField = nil
                             handleOTPSubmission()
                         } label: {
                             if buttonIsLoading {
