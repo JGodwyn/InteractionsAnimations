@@ -58,10 +58,19 @@ struct SwipeableView<Content:View> : View {
                 isExpanded = true
                 dynamicActionStackWidth = abs(finalDragGesture)
             case .closed:
+                dragGesture = 0
                 finalDragGesture = 0
                 isExpanded = false
                 dynamicActionStackWidth = abs(finalDragGesture)
         }
+    }
+    
+    var mainActionStackWidth : CGFloat {
+        // doing this just to prevent dynamicActionStackWidth from being < 0
+        guard dynamicActionStackWidth > 0 else {
+            return 0
+        }
+        return dynamicActionStackWidth
     }
     
     var body: some View {
@@ -83,13 +92,13 @@ struct SwipeableView<Content:View> : View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
                     .foregroundStyle(item.foreground)
-                    .frame(width: dynamicActionStackWidth / CGFloat(actionCount))
+                    .frame(width: mainActionStackWidth / CGFloat(actionCount))
                     .frame(maxHeight: .infinity)
                     .clipped()
                     .background(item.background)
                 }
             }
-            .frame(width: dynamicActionStackWidth, alignment: .trailing)
+            .frame(width: mainActionStackWidth, alignment: .trailing)
             .clipped()
             .mask {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -97,14 +106,23 @@ struct SwipeableView<Content:View> : View {
             
             content
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-            .background(BrandColors.Gray100)
+//            .background(BrandColors.Gray100)
             .mask {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             }
             .offset(x: finalDragGesture + dragGesture)
             .gesture(
-                DragGesture()
+                DragGesture(minimumDistance: 50) // move at least 20 units before allowing the gesture
                     .onChanged { gesture in
+                        // to check if gestures is primarily
+                        let horizontalAmount = abs(gesture.translation.width)
+                        let verticalAmount = abs(gesture.translation.height)
+                        
+                        // only handle horizontal swipes
+                        guard horizontalAmount > verticalAmount else {
+                            return
+                        }
+                        
                         isExpanded = true
                         if finalDragGesture == maxSwipe { // if it's already open
                             dragGesture = max(min(gesture.translation.width, abs(maxSwipe) + 24), -24)
@@ -118,6 +136,15 @@ struct SwipeableView<Content:View> : View {
                         }
                     }
                     .onEnded { gesture in
+                        let horizontalAmount = abs(gesture.translation.width)
+                        let verticalAmount = abs(gesture.translation.height)
+                        
+                        // only handle horizontal swipes
+                        guard horizontalAmount > verticalAmount else {
+                            handleSwipe(state: .closed)
+                            return
+                        }
+                        
                         dragGesture = 0 // reset the gesture value
                         let totalOffset = finalDragGesture + gesture.translation.width
                         let velocity = gesture.predictedEndTranslation.width
