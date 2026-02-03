@@ -43,7 +43,6 @@ struct SwipeableView<Content:View> : View {
     
     @State private var dragGesture: CGFloat = 0
     @State private var finalDragGesture: CGFloat = 0
-    @State private var isExpanded: Bool = false
     @State private var dynamicActionStackWidth : CGFloat = 0
     @State private var containerSize : CGSize = .zero
     
@@ -55,12 +54,10 @@ struct SwipeableView<Content:View> : View {
         switch state {
             case .open:
                 finalDragGesture = maxSwipe
-                isExpanded = true
                 dynamicActionStackWidth = abs(finalDragGesture)
             case .closed:
                 dragGesture = 0
                 finalDragGesture = 0
-                isExpanded = false
                 dynamicActionStackWidth = abs(finalDragGesture)
         }
     }
@@ -106,7 +103,6 @@ struct SwipeableView<Content:View> : View {
             
             content
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-//            .background(BrandColors.Gray100)
             .mask {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             }
@@ -123,7 +119,6 @@ struct SwipeableView<Content:View> : View {
                             return
                         }
                         
-                        isExpanded = true
                         if finalDragGesture == maxSwipe { // if it's already open
                             dragGesture = max(min(gesture.translation.width, abs(maxSwipe) + 24), -24)
                             // moves 24 units and then snaps back
@@ -165,9 +160,12 @@ struct SwipeableView<Content:View> : View {
         }
         .frame(maxWidth: .infinity, alignment: .trailing)
         .frame(height: containerSize.height) // height of the content
-//        .background(BrandColors.Gray200)
-        .animation(.interactiveSpring(response: 0.5, dampingFraction: 1), value: isExpanded)
         .animation(.interactiveSpring(response: 0.5, dampingFraction: 1), value: [dragGesture, finalDragGesture])
+        .transaction { transact in
+            transact.animation = nil
+            // prevent parent animation from affecting this
+            // without this, parent animation causes this to pulse
+        }
         .clipped()
         .mask {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)

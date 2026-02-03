@@ -31,27 +31,9 @@ struct ExpandCardIndex: View {
                     glassContainerTextField(tempData: $exampleCollection)
                     
                     ForEach(exampleCollection.sorted {$0.date > $1.date}) { item in
-//                        textCard(item: item, nameSpace: trashAnimationNS, isDeleting: deletingItemID == item.id) {
-//                            handleDelete(item: item)
-//                        }
-                        
-                        SwipeableView(cornerRadius: 32, content: {
                             textCard(item: item, nameSpace: trashAnimationNS, isDeleting: deletingItemID == item.id) {
                                 handleDelete(item: item)
                             }
-                        }, actions: [
-                            SwipeAction(icon: "pencil", label: "Edit", foreground: .white, background: Color(hex: "#FF5800")) {
-                                handleDelete(item: item)
-                            },
-                            
-                            SwipeAction(icon: "trash.fill", label: "Delete", foreground: .red, background: Color(hex: "#FFE4E4")) {
-                                handleDelete(item: item)
-                            },
-                            
-                            SwipeAction(icon: "pin", foreground: .blue, background: Color(hex: "#A4DDED")) {
-                                handleDelete(item: item)
-                            }
-                        ])
                         .transition(.move(edge: .top).combined(with: .scale).combined(with: .blurReplace))
                     }
                 }

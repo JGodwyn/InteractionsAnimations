@@ -9,11 +9,10 @@ import SwiftUI
 
 struct SwipeNotifications: View {
     
-    
-    @Namespace private var glassify
+    @Namespace private var notifCardNS
     
     @State private var showNotification : Bool = false
-    @State private var notifCollection : [NotificationContent] = NotificationContent.defaultPosts
+    @State private var notifCollectionPreview : [NotificationContent] = NotificationContent.defaultPosts
     
     var body: some View {
         VStack (alignment: .leading) {
@@ -25,10 +24,21 @@ struct SwipeNotifications: View {
                 
                 GlassEffectContainer {
                     HStack(spacing: 8) {
-                        Group {
-                            Image(systemName: "magnifyingglass")
-                            Image(systemName: "ellipsis")
+                        
+                        if !notifCollectionPreview.isEmpty {
+                            Image(systemName: "trash.fill")
+                                .font(.system(size: 22))
+                                .frame(width: 56, height: 48)
+                                .glassEffect(.regular.interactive())
+                                .onTapGesture {
+                                    withAnimation {
+                                        notifCollectionPreview = []
+                                    }
+                                }
+                                .transition(.offset(x:32).combined(with: .blurReplace))
                         }
+                        
+                        Image(systemName: "ellipsis")
                         .font(.system(size: 22))
                         .frame(width: 56, height: 48)
                         .glassEffect(.regular.interactive())
@@ -36,35 +46,36 @@ struct SwipeNotifications: View {
                 }
             }
             
-            Button("Do something") {
-             handleSeeMoreNotification()
-            }
-            .buttonStyle(.glassProminent)
-            
             ScrollView(showsIndicators: false) {
-                ForEach(notifCollection) { notif in
-                    SwipeableView(singleActionWidth: 96, cornerRadius: 24, content: {
-                        notifCard(content: notif)
-                    }, actions: [
-                        SwipeAction(icon: "eye.fill", label: "See more", foreground: Color(hex: "#606c38"), background: Color(hex: "#e9edc9")) {
-                            // when tapped
-//                            handleSeeMoreNotification()
-                        },
-                        
-                        SwipeAction(icon: "eye.half.closed.fill", label: "See less", foreground: .white, background: Color(hex: "#99582a")) {
-                            // when tapped
+                ForEach(notifCollectionPreview) { notif in
+                    if notif.seeLess != nil {
+                        notifCard(content: notif, state: .collapsed)
+                            .id("\(notif.id)-collapsed")
+                            .transition(.blurReplace.combined(with: .scale(0, anchor: .bottomTrailing)))
+                    }
+                    else {
+                        SwipeableView(singleActionWidth: 96, cornerRadius: 24, content: {
+                            notifCard(content: notif, state: .expanded)
+
+                        }, actions: [
+                            SwipeAction(icon: "eye.fill", label: "See more", foreground: Color(hex: "#606c38"), background: Color(hex: "#e9edc9")) {
+                                handleSeeMore(content: notif)
+                            },
                             
-                        },
-                        
-                        SwipeAction(icon: "trash.fill", label: "Delete", foreground: .white, background: Color(hex: "#dd2d4a")) {
-                            handleDelete(content: notif)
-                        }
-                    ])
-                    .transition(.push(from: .trailing).combined(with: .blurReplace))
+                            SwipeAction(icon: "eye.half.closed.fill", label: "See less", foreground: .white, background: Color(hex: "#99582a")) {
+                                handleSeeLess(content: notif)
+                            },
+                            
+                            SwipeAction(icon: "trash.fill", label: "Delete", foreground: .white, background: Color(hex: "#dd2d4a")) {
+                                handleDelete(content: notif)
+                            }
+                        ])
+                        .id("\(notif.id)-expanded")
+                        .transition(.blurReplace.combined(with: .scale(0, anchor: .trailing)))
+                    }
                 }
             }
-            .scrollIndicatorsFlash(trigger: notifCollection)
-
+            .scrollIndicatorsFlash(trigger: notifCollectionPreview)
         }
         .padding()
         .background(BrandColors.Gray100)
@@ -78,59 +89,126 @@ struct SwipeNotifications: View {
                 }
                 .padding(.horizontal)
                 .frame(height: 48)
-                .glassEffect(.regular.tint(.green.opacity(0.1)))
+                .glassEffect(.regular.tint(.green.opacity(0.2)))
                 .compositingGroup()
-                .shadow(color: .green.opacity(0.5), radius: 24)
-                .transition(.move(edge: .bottom).combined(with: .blurReplace))
+                .shadow(color: .green.opacity(0.3), radius: 16)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .animation(.smooth, value: showNotification)
-        .animation(.smooth, value: notifCollection)
+        .overlay {
+            if notifCollectionPreview.isEmpty {
+                VStack(spacing: 24) {
+                    Image("NotificationCircle")
+                        .resizable()
+                        .frame(width: 40, height: 40)
+                        .grayscale(1)
+                    Text("You don't have any \nnotifications")
+                        .font(.system(size: 20))
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(BrandColors.Gray500)
+                }
+                .padding(32)
+            }
+        }
     }
     
     func handleDelete(content : NotificationContent) {
-        if let idx = notifCollection.firstIndex(where: { $0.id == content.id }) {
-            notifCollection.remove(at: idx)
+        withAnimation(.smooth) {
+            if let idx = notifCollectionPreview.firstIndex(where: { $0.id == content.id }) {
+                notifCollectionPreview.remove(at: idx)
+            }
         }
     }
     
-    func handleSeeMoreNotification() {        
-        showNotification = true
+    func handleSeeMore(content : NotificationContent) {
+        if let idx = notifCollectionPreview.firstIndex(where: { $0.id == content.id }) {
+            notifCollectionPreview[idx].seeMore = true // you can mutate this
+        }
+        withAnimation(.smooth) {
+            showNotification = true
+        }
         Task {
             try? await Task.sleep(for: .seconds(2))
-            showNotification = false
+            withAnimation(.smooth) {
+                showNotification = false
+            }
+        }
+    }
+    
+    func handleSeeLess(content : NotificationContent) {
+        withAnimation(.smooth) {
+            if let idx = notifCollectionPreview.firstIndex(of: content) {
+                notifCollectionPreview[idx].seeLess = true
+            }
+        }
+        
+        Task {
+            try? await Task.sleep(for: .seconds(4))
+            withAnimation(.smooth) {
+                if let idx = notifCollectionPreview.firstIndex(where: { $0.id == content.id }) {
+                    notifCollectionPreview.remove(at: idx)
+                }
+            }
         }
     }
     
     
     @ViewBuilder
-    func notifCard(content : NotificationContent) -> some View {
-        HStack (alignment: .top) {
-            if let image = content.image {
-                image
-                    .resizable()
-                    .frame(width: 56, height: 56)
-            } else {
-                Image("Placeholder")
-                    .resizable()
-                    .frame(width: 56, height: 56)
+    func notifCard(content : NotificationContent, state : ViewState) -> some View {
+        switch state {
+            case .expanded:
+            VStack {
+                HStack (alignment: .top) {
+                    if let image = content.image {
+                        image
+                            .resizable()
+                            .frame(width: 56, height: 56)
+                    } else {
+                        Image("Placeholder")
+                            .resizable()
+                            .frame(width: 56, height: 56)
+                    }
+                    
+                    Text("\(Text(content.author).bold()) \(Text(content.action.description).foregroundStyle(BrandColors.Gray500)): \(content.content)")
+                        .font(.system(size: 17))
+                        .lineSpacing(2)
+                    
+                    
+                    Text(content.date.formatted(date: .omitted, time: .shortened))
+                        .font(.system(size: 14))
+                        .foregroundStyle(BrandColors.Gray500)
+                    
+                }
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: 100)
+                .background(BrandColors.Gray0, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
             
-            Text("\(Text(content.author).bold()) \(Text(content.action.description).foregroundStyle(BrandColors.Gray500)): \(content.content)")
-                .font(.system(size: 17))
-                .lineSpacing(2)
-            
-            Text(content.date.formatted(date: .omitted, time: .shortened))
-                .font(.system(size: 14))
-                .foregroundStyle(BrandColors.Gray500)
-            
+            case .collapsed:
+            VStack {
+                HStack {
+                    if let image = content.image {
+                        image
+                            .resizable()
+                            .frame(width: 24, height: 24)
+                    } else {
+                        Image("Placeholder")
+                            .resizable()
+                            .frame(width: 24, height: 24)
+                    }
+                    
+                    Text("You'll get less notifications from \(Text(content.author).bold())")
+                        .font(.system(size: 14))
+                    
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: 40)
+                .background(.green.opacity(0.2), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(height: 100)
-        .background(BrandColors.Gray0, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
-    
 }
 
 #Preview {
@@ -145,6 +223,8 @@ struct NotificationContent : Identifiable, Equatable {
     var date : Date
     var image : Image?
     var action : actions
+    var seeMore : Bool?
+    var seeLess : Bool?
     
     enum actions {
         case posted
@@ -197,7 +277,7 @@ struct NotificationContent : Identifiable, Equatable {
                 
                 NotificationContent(author: "Ryan Cooper", content: "Spent the entire weekend hiking through the mountains and disconnecting from technology. The views were spectacular and the fresh air was exactly what I needed. Nature has this amazing ability to reset your mind and put everything into perspective. Already planning my next adventure!", date: Date().addingTimeInterval(-43200), image: Image("IMG_2"), action: .posted),
                 
-                NotificationContent(author: "Nina Patel", content: "Baked my grandmother's secret recipe chocolate cake today and it turned out perfect! Baking is more than just following recipes - it's about creating memories and bringing people together. The smell of fresh baked goods filling the house is pure comfort. Can't wait to share this with family!", date: Date().addingTimeInterval(-46800), image: Image("IMG_7"), action: .liked),
+                NotificationContent(author: "Nina Patel", content: "Baked my grandmother's secret recipe chocolate cake today and turned out perfect! Baking is more than just following recipes - it's about creating memories and bringing people together. The smell of fresh baked goods filling the house is pure comfort. Can't wait to share this with family!", date: Date().addingTimeInterval(-46800), image: Image("IMG_7"), action: .liked),
                 
                 NotificationContent(author: "Mark Sullivan", content: "Mind-blowing discovery in the lab today! Science never stops amazing me with its endless possibilities. We've been working on this research project for months and seeing it all come together is incredibly satisfying. The potential applications of this could change so many lives for the better!", date: Date().addingTimeInterval(-50400), image: nil, action: .posted),
                 
@@ -215,3 +295,52 @@ struct NotificationContent : Identifiable, Equatable {
             ]
         }
 }
+
+
+enum ViewState {
+    case expanded
+    case collapsed
+}
+
+enum NotificationActionType {
+    case seeLess
+    case delete
+    
+    var transition : AnyTransition {
+        switch self {
+            case .seeLess:
+                return .scale(scale: 0.2, anchor: .center).combined(with: .blurReplaceTransition)
+            case .delete:
+                return .push(from: .leading).combined(with: .scale(scale: 0, anchor: .trailing))
+        }
+    }
+}
+
+
+// for the new transition
+extension AnyTransition {
+    static var blurReplaceTransition: AnyTransition {
+        .asymmetric(
+            insertion: .modifier(
+                active: BlurTransitionModifier(blur: 16, opacity: 0),
+                identity: BlurTransitionModifier(blur: 0, opacity: 1)
+            ),
+            removal: .modifier(
+                active: BlurTransitionModifier(blur: 16, opacity: 0),
+                identity: BlurTransitionModifier(blur: 0, opacity: 1)
+            )
+        )
+    }
+}
+
+private struct BlurTransitionModifier: ViewModifier {
+    var blur: CGFloat
+    var opacity: Double
+
+    func body(content: Content) -> some View {
+        content
+            .blur(radius: blur)
+            .opacity(opacity)
+    }
+}
+
