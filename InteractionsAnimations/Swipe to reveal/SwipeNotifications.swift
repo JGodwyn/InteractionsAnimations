@@ -24,11 +24,10 @@ struct SwipeNotifications: View {
                 
                 GlassEffectContainer {
                     HStack(spacing: 8) {
-                        
                         if !notifCollectionPreview.isEmpty {
                             Image(systemName: "trash.fill")
                                 .font(.system(size: 22))
-                                .frame(width: 56, height: 48)
+                                 .frame(width: 56, height: 48)
                                 .glassEffect(.regular.interactive())
                                 .onTapGesture {
                                     withAnimation {
